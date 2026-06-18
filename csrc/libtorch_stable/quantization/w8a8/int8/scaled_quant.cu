@@ -108,7 +108,9 @@ __global__ void static_scaled_int8_quant_kernel(
   // Must be performed using 64-bit math to avoid integer overflow.
   const scalar_t* row_in = input + token_idx * hidden_size;
   int8_t* row_out = output + token_idx * hidden_size;
-
+  if (blockIdx.x == 0 && threadIdx.x == 0) {
+      printf("Scale: %f\n", scale);
+  }
   vectorize_with_alignment<16>(
       row_in, row_out, hidden_size, tid, stride,
       [=] __device__(int8_t& dst, const scalar_t& src) {

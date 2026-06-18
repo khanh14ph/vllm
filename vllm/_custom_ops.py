@@ -834,6 +834,7 @@ def cutlass_scaled_mm(
         scale_a.shape * [1, 128] == a.shape
         scale_b.shape * [128, 128] == b.shape
     """
+    
     assert out_dtype is torch.bfloat16 or out_dtype is torch.float16
     assert bias is None or bias.numel() == b.shape[1] and bias.dtype == out_dtype
 
@@ -2133,6 +2134,7 @@ def scaled_int8_quant(
     input_scales = torch.empty(
         (input.numel() // input.shape[-1], 1), device=input.device, dtype=torch.float32
     )
+
     input_azp = None if symmetric else torch.empty_like(input_scales, dtype=torch.int32)
     torch.ops._C.dynamic_scaled_int8_quant(
         output, input.contiguous(), input_scales, input_azp

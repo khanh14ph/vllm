@@ -101,6 +101,7 @@ class LLMEngine:
         )
 
         # EngineCore (gets EngineCoreRequests and gives EngineCoreOutputs)
+        logger.critical("Creating EngineCoreClient inside LLMEngine with multiprocess_mode=%s", multiprocess_mode)
         self.engine_core = EngineCoreClient.make_client(
             multiprocess_mode=multiprocess_mode,
             asyncio_mode=False,
@@ -161,11 +162,10 @@ class LLMEngine:
         # Create the engine configs.
         vllm_config = engine_args.create_engine_config(usage_context)
         executor_class = Executor.get_class(vllm_config)
-
+        
         if envs.VLLM_ENABLE_V1_MULTIPROCESSING:
             logger.debug("Enabling multiprocessing for LLMEngine.")
             enable_multiprocessing = True
-
         # Create the LLMEngine.
         return cls(
             vllm_config=vllm_config,

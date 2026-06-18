@@ -44,6 +44,7 @@ def main(args: Namespace):
             f"Prompt: {prompt!r} \n"
             f"Class Probabilities: {probs_trimmed} (size={len(probs)})"
         )
+        print(output)
         print("-" * 60)
 
 

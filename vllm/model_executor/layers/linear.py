@@ -550,7 +550,13 @@ class ColumnParallelLinear(LinearBase):
         input_,
     ) -> torch.Tensor | tuple[torch.Tensor, Parameter | None]:
         bias = self.bias if not self.skip_bias_add else None
-
+        K = self.weight.size(1)
+        N = self.weight.size(0)
+        
+        # M is the total number of tokens (flatten all dimensions except the last)
+        M = input_.numel() // K 
+        
+        # print(f"MatMul Shape (M, N, K): ({M}, {N}, {K})")
         # Matrix multiply.
         output_parallel = self.quant_method.apply(self, input_, bias)
 

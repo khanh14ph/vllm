@@ -54,11 +54,9 @@ def _quant_weight(b, w_type, device):
 def build_int8_runner(cfg, a, b, dtype, device):
     # quant before running the kernel
     b_int8, scale_b_int8 = _quant_weight(b, cfg["w"], device)
-
     scale_a_const = None
     if cfg["a"] == "tensor":
         scale_a_const = torch.ones(1, device=device, dtype=torch.float32)
-
     # no quant, create activation ahead
     if cfg["no_a_quant"]:
         if cfg["a"] == "tensor":
@@ -83,7 +81,7 @@ def build_int8_runner(cfg, a, b, dtype, device):
         def run_quant():
             a_int8, scale_a_int8, _ = vllm_scaled_int8_quant(a)
             return vllm_scaled_mm(a_int8, b_int8, scale_a_int8, scale_b_int8, dtype)
-
+    
     return run_quant
 
 
@@ -93,13 +91,13 @@ _enabled = [k for k, v in PROVIDER_CFGS.items() if v.get("enabled")]
 @triton.testing.perf_report(
     triton.testing.Benchmark(
         x_names=["batch_size"],
-        x_vals=[1, 16, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384],
+        x_vals=[512],
         x_log=False,
         line_arg="provider",
         line_vals=_enabled,
         line_names=[k for k in _enabled],
         ylabel="TFLOP/s (larger is better)",
-        plot_name="BF16 vs INT8 GEMMs",
+        plot_name="BF16_INT8_GEMMs",
         args={},
     )
 )
@@ -140,14 +138,6 @@ def prepare_shapes(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--models",
-        nargs="+",
-        type=str,
-        default=["meta-llama/Llama-3.1-8B-Instruct"],
-        choices=list(WEIGHT_SHAPES.keys()),
-        help="List of models to benchmark",
-    )
-    parser.add_argument(
         "--tp-sizes",
         nargs="+",
         type=int,
@@ -155,15 +145,14 @@ if __name__ == "__main__":
         help="List of tensor parallel sizes",
     )
     args = parser.parse_args()
-
-    for K, N, model in prepare_shapes(args):
-        print(f"{model}, N={N} K={K}, BF16 vs INT8 GEMMs TFLOP/s:")
-        benchmark.run(
-            print_data=True,
-            show_plots=True,
-            save_path=f"bench_int8_res_n{N}_k{K}",
-            N=N,
-            K=K,
-        )
+    K=1024
+    N=4096
+    benchmark.run(
+        print_data=True,
+        show_plots=False,
+        save_path=f"bench_int8_res_n{N}_k{K}",
+        N=N,
+        K=K,
+    )
 
     print("Benchmark finished!")

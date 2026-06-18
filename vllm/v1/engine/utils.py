@@ -162,6 +162,7 @@ class CoreEngineProcManager:
 
             # Start EngineCore in background process.
             local_dp_ranks.append(local_index)
+            logger.critical("Spawning EngineCore process for local DP rank %d (global DP rank %d)", local_index, global_index)
             self.processes.append(
                 context.Process(
                     target=EngineCoreProc.run_engine_core,
@@ -1087,7 +1088,7 @@ def launch_core_engines(
     run_coordinator = (
         vllm_config.needs_dp_coordinator and not offline_mode and dp_rank == 0
     )
-
+    logger.critical("run_coordinator %s", run_coordinator)
     if run_coordinator:
         coordinator = DPCoordinator(
             parallel_config,
@@ -1107,7 +1108,7 @@ def launch_core_engines(
 
     if parallel_config.data_parallel_backend == "ray":
         logger.info("Starting ray-based data parallel backend")
-
+        logger.critical("DEBUG: Starting CoreEngineActorManager with dp_rank %s", dp_rank)
         engine_actor_manager = CoreEngineActorManager(
             vllm_config=vllm_config,
             addresses=addresses,
@@ -1120,6 +1121,7 @@ def launch_core_engines(
 
     if offline_mode:
         assert local_engine_count == 1
+        logger.critical("dp_rank: %s",dp_rank)
         engines_to_handshake = [CoreEngine(index=dp_rank, local=True)]
     elif dp_rank == 0:
         # Rank 0 holds Coordinator, so it handshakes with all Cores
@@ -1163,12 +1165,15 @@ def launch_core_engines(
     else:
         local_handshake_address = handshake_address
         client_handshake_address = None
-
+    logger.critical("Set up zmq handshake between child engine and main engine")
+    
     with zmq_socket_ctx(
         local_handshake_address, zmq.ROUTER, bind=True
     ) as handshake_socket:
         # Start local engines.
         if local_engine_count:
+            logger.critical("Starting %d local engine(s) at %s", local_engine_count, local_handshake_address)
+            logger.critical("Initialize CoreEngineProcManager")
             local_engine_manager = CoreEngineProcManager(
                 vllm_config=vllm_config,
                 executor_class=executor_class,

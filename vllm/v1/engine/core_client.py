@@ -88,6 +88,7 @@ class EngineCoreClient(ABC):
         log_stats: bool,
     ) -> "EngineCoreClient":
         # TODO: support this for debugging purposes.
+        
         if asyncio_mode and not multiprocess_mode:
             raise NotImplementedError(
                 "Running EngineCore in asyncio without multiprocessing "
@@ -100,6 +101,7 @@ class EngineCoreClient(ABC):
             )
 
         if multiprocess_mode and not asyncio_mode:
+            logger.critical("Since multiprocess_mode=True and asyncio_mode=False, using SyncMPClient Class")
             return SyncMPClient(vllm_config, executor_class, log_stats)
 
         return InprocClient(vllm_config, executor_class, log_stats)
@@ -488,12 +490,18 @@ class MPClient(EngineCoreClient):
         self.vllm_config = vllm_config
 
         # ZMQ setup.
+        
+        logger.critical("Start initializing MPClient")
+        
+        logger.critical("Initializing ZMQ (ZMQ) context with 2 threads")
+        
         sync_ctx = zmq.Context(io_threads=2)
         self.ctx = zmq.asyncio.Context(sync_ctx) if asyncio_mode else sync_ctx
 
         # This will ensure resources created so far are closed
         # when the client is garbage collected, even if an
         # exception is raised mid-construction.
+        logger.critical("Initializing background resources (BackgroundResources class) and finalizer to clean on shutdown ")
         self.resources = BackgroundResources(ctx=sync_ctx)
         self._finalizer = weakref.finalize(self, self.resources)
         success = False
@@ -508,6 +516,7 @@ class MPClient(EngineCoreClient):
 
             self.stats_update_address: str | None = None
             tensor_queue: Queue | None = None
+            logger.critical("client_addresses: %s", client_addresses)
             if client_addresses:
                 # Engines are managed externally to this client.
                 input_address = client_addresses["input_address"]
@@ -549,7 +558,11 @@ class MPClient(EngineCoreClient):
                         actual_address_pipe.close()
             else:
                 # Engines are managed by this client.
+                
                 addresses = get_engine_zmq_addresses(vllm_config)
+                print("vllm_config",vllm_config)
+                logger.critical("Generate ZeroMQ (ZMQ) network address")
+                
                 self.input_socket = self.resources.input_socket = make_zmq_socket(
                     self.ctx,
                     addresses.inputs[0],
@@ -560,16 +573,17 @@ class MPClient(EngineCoreClient):
                 self.resources.output_socket = make_zmq_socket(
                     self.ctx, addresses.outputs[0], zmq.PULL
                 )
-
+                logger.critical("Created input socket (ROUTER) and output socket (PULL) for engine communication")
                 # Resolve ``tcp://host:0`` placeholders to bound endpoints
                 # before engines DEALER-connect. No-op for IPC.
                 addresses.inputs[0] = self.input_socket.getsockopt(
                     zmq.LAST_ENDPOINT
                 ).decode()
+                logger.critical("Bound input socket to address: %s", addresses.inputs[0])
                 addresses.outputs[0] = self.resources.output_socket.getsockopt(
                     zmq.LAST_ENDPOINT
                 ).decode()
-
+                logger.critical("Bound output socket to address: %s", addresses.outputs[0])
                 with launch_core_engines(
                     vllm_config, executor_class, log_stats, addresses
                 ) as (engine_manager, coordinator, addresses, tensor_queue):
@@ -782,7 +796,7 @@ class SyncMPClient(MPClient):
     @instrument(span_name="SyncMPClient init")
     def __init__(
         self, vllm_config: VllmConfig, executor_class: type[Executor], log_stats: bool
-    ):
+    ):  
         super().__init__(
             asyncio_mode=False,
             vllm_config=vllm_config,
@@ -845,7 +859,6 @@ class SyncMPClient(MPClient):
 
         # The thread takes on responsibility for closing the socket.
         self.resources.output_socket = None
-
     def get_output(self) -> EngineCoreOutputs:
         # If an exception arises in process_outputs_socket task,
         # it is forwarded to the outputs_queue so we can raise it

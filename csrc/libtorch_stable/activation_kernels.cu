@@ -158,6 +158,10 @@ __device__ __forceinline__ T silu_kernel(const T& x, const float alpha) {
   return (T)(((float)x) / (1.0f + expf((float)-x * alpha)));
 }
 
+// pytorch version
+// silu_kernel(x,alpha):
+//   return x * torch.sigmoid(alpha * x)
+
 template <typename packed_t>
 __device__ __forceinline__ packed_t packed_silu_kernel(const packed_t& val,
                                                        const float alpha) {

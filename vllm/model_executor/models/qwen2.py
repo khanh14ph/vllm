@@ -374,7 +374,6 @@ class Qwen2Model(nn.Module, EagleModelMixin):
             ),
             prefix=f"{prefix}.layers",
         )
-
         self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
             ["hidden_states", "residual"], config.hidden_size
         )

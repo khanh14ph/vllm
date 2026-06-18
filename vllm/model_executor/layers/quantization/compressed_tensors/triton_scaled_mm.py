@@ -60,6 +60,9 @@ def scaled_mm_kernel(
     offsets_bn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N).to(tl.int64)
     masks_bn = offsets_bn < N
 
+
+    if pid_m == 0 and pid_n == 0:
+        tl.device_print("Worker 0,0 Offsets A: ", stride_ak)
     offsets_k = tl.arange(0, BLOCK_SIZE_K).to(tl.int64)
     offsets_a = stride_am * offsets_am[:, None] + stride_ak * offsets_k[None, :]
     offsets_b = stride_bk * offsets_k[:, None] + stride_bn * offsets_bn[None, :]
@@ -89,13 +92,11 @@ def scaled_mm_kernel(
         masks_k = offsets_k < K
         masks_a = masks_am[:, None] & masks_k[None, :]
         a = tl.load(a_ptrs, mask=masks_a)
-
         masks_b = masks_k[:, None] & masks_bn[None, :]
         b = tl.load(b_ptrs, mask=masks_b)
 
         # Accumulate results.
         accumulator = tl.dot(a, b, accumulator, out_dtype=accumulator_dtype)
-
         offsets_k += BLOCK_SIZE_K
         a_ptrs += BLOCK_SIZE_K * stride_ak
         b_ptrs += BLOCK_SIZE_K * stride_bk
@@ -152,11 +153,10 @@ def triton_scaled_mm(
 ) -> torch.Tensor:
     M, K = input.shape
     N = weight.shape[1]
-
+    print("desired output dtype: ", out_dtype)
     assert N > 0 and K > 0 and M > 0
     assert weight.shape[0] == K
     assert input.dtype == weight.dtype
-
     scale_a = scale_a.reshape(-1, 1) if scale_a.dim() <= 1 else scale_a
     scale_b = scale_b.reshape(-1, 1) if scale_b.dim() <= 1 else scale_b
 

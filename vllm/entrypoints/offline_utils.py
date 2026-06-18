@@ -337,6 +337,7 @@ class OfflineInferenceMixin:
         tokenization_kwargs: dict[str, Any] | None = None,
         mm_processor_kwargs: dict[str, Any] | None = None,
     ):
+        logger.critical("call to function _run_completion in OfflineInferenceMixin class")
         self._add_completion_requests(
             prompts=prompts,
             params=params,
