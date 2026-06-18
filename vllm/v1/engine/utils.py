@@ -1202,6 +1202,7 @@ def launch_core_engines(
             local_engine_manager,
             coordinator.proc if coordinator else None,
         )
+        logger.info("All engine core processes started successfully (wait_for_engine_startup returned).")
 
 
 def wait_for_engine_startup(
