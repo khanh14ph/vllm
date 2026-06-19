@@ -121,6 +121,7 @@ class Executor(ABC):
         underlying workers.
         """
         self.collective_rpc("initialize_from_config", args=(kv_cache_configs,))
+
         compilation_times: list[CompilationTimes] = self.collective_rpc(
             "compile_or_warm_up_model"
         )
@@ -135,6 +136,7 @@ class Executor(ABC):
             self.vllm_config.compilation_config.encoder_compilation_time = max(
                 t.encoder for t in compilation_times
             )
+        
 
     def register_failure_callback(self, callback: FailureCallback):  # noqa: B027
         """

@@ -304,7 +304,7 @@ class OfflineInferenceMixin:
         seq_params = self._params_to_seq(params, len(seq_prompts))
         seq_lora_requests = self._lora_request_to_seq(lora_request, len(seq_prompts))
         seq_priority = self._priority_to_seq(priority, len(seq_prompts))
-
+        logger.critical("OfflineInferenceMixin: Calling function _render_and_add_requests")
         return self._render_and_add_requests(
             prompts=(
                 self._preprocess_cmpl_one(
@@ -337,7 +337,7 @@ class OfflineInferenceMixin:
         tokenization_kwargs: dict[str, Any] | None = None,
         mm_processor_kwargs: dict[str, Any] | None = None,
     ):
-        logger.critical("call to function _run_completion in OfflineInferenceMixin class")
+        
         self._add_completion_requests(
             prompts=prompts,
             params=params,
@@ -347,6 +347,7 @@ class OfflineInferenceMixin:
             tokenization_kwargs=tokenization_kwargs,
             mm_processor_kwargs=mm_processor_kwargs,
         )
+        logger.critical("OfflineInferenceMixin: Finished adding requests to engine, start engine execution")
         return self._run_engine(use_tqdm=use_tqdm, output_type=output_type)
 
     def _run_chat(
@@ -369,6 +370,7 @@ class OfflineInferenceMixin:
         tokenization_kwargs: dict[str, Any] | None = None,
         mm_processor_kwargs: dict[str, Any] | None = None,
     ):
+        logger.critical("OfflineInferenceMixin: Calling function _run_chat")
         self._add_chat_requests(
             messages=messages,
             params=params,
@@ -533,6 +535,7 @@ class OfflineInferenceMixin:
 
         try:
             for i, prompt in enumerate(prompts):
+                logger.critical(f"OfflineInferenceMixin: Adding request {i+1}/{len(params)}: |{prompt}| to engine")
                 request_id = self._add_request(
                     prompt,
                     params[i],
@@ -593,7 +596,7 @@ class OfflineInferenceMixin:
         total_in_toks = 0
         total_out_toks = 0
         while self.llm_engine.has_unfinished_requests():
-            step_outputs = self.llm_engine.step()
+            step_outputs = self.llm_engine.step()  # Debugging line
             for output in step_outputs:
                 assert isinstance(output, output_type)
                 if output.finished:

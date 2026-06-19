@@ -198,6 +198,7 @@ class MultiprocExecutor(Executor):
             # deadlock, since worker.init_device() does a device sync.
 
             # Wait for all local workers to be ready.
+            logger.info("Waiting for %d local workers to be ready", self.local_world_size)
             self.workers = WorkerProc.wait_for_ready(unready_workers)
 
             # Start background thread to monitor worker health if not in headless mode.
@@ -245,6 +246,7 @@ class MultiprocExecutor(Executor):
                 self._ensure_worker_termination([uw.proc for uw in unready_workers])
 
         self.output_rank = self._get_output_rank()
+
 
     def _get_parallel_sizes(self) -> tuple[int, int, int]:
         self.world_size = self.parallel_config.world_size
@@ -371,6 +373,7 @@ class MultiprocExecutor(Executor):
             send_method = method
         else:
             send_method = cloudpickle.dumps(method, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.critical("Core Engine push data out to the GPU workers queue")
         self.rpc_broadcast_mq.enqueue((send_method, args, kwargs, output_rank))
 
         response_mqs: Sequence[MessageQueue] = self.response_mqs
@@ -384,6 +387,7 @@ class MultiprocExecutor(Executor):
                     None if deadline is None else (deadline - time.monotonic())
                 )
                 try:
+                    logger.critical("Core Engine waiting for response from the GPU workers queue")
                     status, result = mq.dequeue(timeout=dequeue_timeout)
                 except TimeoutError as e:
                     raise TimeoutError(f"RPC call to {method} timed out.") from e
@@ -617,7 +621,7 @@ class WorkerProc:
         }
         wrapper.init_worker(all_kwargs)
         self.worker = wrapper
-
+        logger.critical("WorkerProc: Initialized worker %s", self.worker)
         self.setup_proc_title_and_log_prefix(
             enable_ep=vllm_config.parallel_config.enable_expert_parallel
         )
@@ -628,10 +632,13 @@ class WorkerProc:
         self.setup_proc_title_and_log_prefix(
             enable_ep=vllm_config.parallel_config.enable_expert_parallel
         )
+    
         if envs.VLLM_ELASTIC_EP_SCALE_UP_LAUNCH:
             self.worker.elastic_ep_execute("load_model")
         else:
+            logger.critical("WorkerProc: Loading model on worker rank %d", self.rank)
             self.worker.load_model()
+            logger.critical("WorkerProc: Done loading model on worker rank %d", self.rank)
 
         scheduler_config = vllm_config.scheduler_config
         self.use_async_scheduling = scheduler_config.async_scheduling
@@ -688,6 +695,7 @@ class WorkerProc:
             "inherited_fds": inherited_fds if inherited_fds is not None else [],
         }
         # Run EngineCore busy loop in background process.
+        logger.critical("WorkerProc: Create worker process for global rank %d, local rank %d", rank, local_rank)
         proc = context.Process(
             target=WorkerProc.worker_main,
             kwargs=process_kwargs,
@@ -698,7 +706,8 @@ class WorkerProc:
         # Apply NUMA binding if configured
         with numa_utils.configure_subprocess(
             vllm_config, local_rank, process_kind="worker"
-        ):
+        ):  
+            logger.critical("WorkerProc: Starting worker process for global rank %d, local rank %d", rank, local_rank)
             proc.start()
 
         # Close child ends of pipes here in the parent
@@ -875,7 +884,7 @@ class WorkerProc:
             worker.worker_response_mq.wait_until_ready()
             ready_writer.close()
             ready_writer = None
-
+            logger.critical("Start worker_busy_loop in worker rank %d", worker.rank)
             worker.worker_busy_loop()
 
         except Exception:
@@ -936,6 +945,7 @@ class WorkerProc:
         else:
             result = (WorkerProc.ResponseStatus.SUCCESS, output)
         if (response_mq := self.worker_response_mq) is not None:
+            logger.critical("WorkerProc enqueueing response to the GPU workers queue response_mq")
             response_mq.enqueue(result)
 
     def handle_output(self, output: Any):

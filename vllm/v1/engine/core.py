@@ -120,33 +120,33 @@ class EngineCore:
         self.log_stats = log_stats
 
         # Setup Model.
+        logger.critical("EngineCore Class: Initializing model executor with class %s", executor_class)
         self.model_executor = executor_class(vllm_config)
+        logger.critical("EngineCore Class: Done initializing model executor with class %s", executor_class)
         if executor_fail_callback is not None:
             self.model_executor.register_failure_callback(executor_fail_callback)
-
         self.available_gpu_memory_for_kv_cache = -1
-
+        
         if envs.VLLM_ELASTIC_EP_SCALE_UP_LAUNCH:
             self._eep_scale_up_before_kv_init()
-
+        
         # Setup KV Caches and update CacheConfig after profiling.
         kv_cache_config = self._initialize_kv_caches(vllm_config)
         self.structured_output_manager = StructuredOutputManager(vllm_config)
-
         # Setup scheduler.
         Scheduler = vllm_config.scheduler_config.get_scheduler_cls()
-
+        
         if len(kv_cache_config.kv_cache_groups) == 0:  # noqa: SIM102
             # Encoder models without KV cache don't support
             # chunked prefill. But do SSM models?
             if vllm_config.scheduler_config.enable_chunked_prefill:
                 logger.warning("Disabling chunked prefill for model without KVCache")
                 vllm_config.scheduler_config.enable_chunked_prefill = False
-
+        
         scheduler_block_size, hash_block_size = resolve_kv_cache_block_sizes(
             kv_cache_config, vllm_config
         )
-
+        
         self.scheduler: SchedulerInterface = Scheduler(
             vllm_config=vllm_config,
             kv_cache_config=kv_cache_config,
@@ -188,7 +188,7 @@ class EngineCore:
                     if worker_dict is not None:
                         content.update(worker_dict)
                 kv_connector.set_xfer_handshake_metadata_pp_aware(content)
-
+        
         # Setup batch queue for pipeline parallelism.
         # Batch queue for scheduled batches. This enables us to asynchronously
         # schedule and execute batches, and is required by pipeline parallelism
@@ -206,7 +206,6 @@ class EngineCore:
             or vllm_config.ec_transfer_config.is_ec_consumer
         )
         self.is_pooling_model = vllm_config.model_config.runner_type == "pooling"
-
         self.request_block_hasher: Callable[[Request], list[BlockHash]] | None = None
         if vllm_config.cache_config.enable_prefix_caching or kv_connector is not None:
             caching_hash_fn = get_hash_fn_by_name(
@@ -229,12 +228,14 @@ class EngineCore:
 
         # Mark the startup heap as static so that it's ignored by GC.
         # Reduces pause times of oldest generation collections.
+        
         freeze_gc_heap()
         # If enable, attach GC debugger after static variable freeze.
         maybe_attach_gc_debug_callback()
         # Enable environment variable cache (e.g. assume no more
         # environment variable overrides after this point)
         enable_envs_cache()
+        
 
     @instrument(span_name="Prepare model")
     def _initialize_kv_caches(self, vllm_config: VllmConfig) -> KVCacheConfig:
@@ -294,10 +295,9 @@ class EngineCore:
             vllm_config.cache_config.kv_cache_max_concurrency = max_concurrency
 
         vllm_config.validate_block_size()
-
         # Initialize kv cache and warmup the execution
+        logger.critical("EngineCore: Initializing model executor from config")
         self.model_executor.initialize_from_config(kv_cache_configs)
-
         elapsed = time.time() - start
         compile_time = vllm_config.compilation_config.compilation_time
         encoder_compile_time = vllm_config.compilation_config.encoder_compilation_time
@@ -455,7 +455,6 @@ class EngineCore:
         Returns tuple of outputs and a flag indicating whether the model
         was executed.
         """
-
         # Check for any requests remaining in the scheduler - unfinished,
         # or finished and not yet removed from the batch.
         if not self.scheduler.has_requests():
@@ -1168,6 +1167,7 @@ class EngineCoreProc(EngineCore):
                 parallel_config.data_parallel_size = 1
                 parallel_config.data_parallel_size_local = 1
                 parallel_config.data_parallel_rank = 0
+                logger.critical("Actual Starting EngineCore Process with DP rank %d", dp_rank)
                 engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
 
             assert engine_core is not None

@@ -79,7 +79,6 @@ from .utils import (
     maybe_prefix,
 )
 
-
 class Qwen2MLP(nn.Module):
     def __init__(
         self,
@@ -392,6 +391,7 @@ class Qwen2Model(nn.Module, EagleModelMixin):
         intermediate_tensors: IntermediateTensors | None = None,
         inputs_embeds: torch.Tensor | None = None,
     ) -> torch.Tensor | IntermediateTensors:
+        print("QWEN3: Start Forward ---")
         if get_pp_group().is_first_rank:
             if inputs_embeds is not None:
                 hidden_states = inputs_embeds
@@ -406,7 +406,8 @@ class Qwen2Model(nn.Module, EagleModelMixin):
         aux_hidden_states = self._maybe_add_hidden_state([], 0, hidden_states, residual)
         for idx, layer in enumerate(
             islice(self.layers, self.start_layer, self.end_layer)
-        ):
+        ):  
+            print(f"QWEN3: Layer {idx}th - {layer.__class__.__name__}")
             hidden_states, residual = layer(positions, hidden_states, residual)
             self._maybe_add_hidden_state(
                 aux_hidden_states, idx + 1, hidden_states, residual

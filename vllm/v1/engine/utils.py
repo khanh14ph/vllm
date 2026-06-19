@@ -162,7 +162,7 @@ class CoreEngineProcManager:
 
             # Start EngineCore in background process.
             local_dp_ranks.append(local_index)
-            logger.critical("Spawning EngineCore process for local DP rank %d (global DP rank %d)", local_index, global_index)
+            logger.critical("CoreEngineProcManager: Spawning EngineCore process for local DP rank %d (global DP rank %d)", local_index, global_index)
             self.processes.append(
                 context.Process(
                     target=EngineCoreProc.run_engine_core,
@@ -209,6 +209,7 @@ class CoreEngineProcManager:
                         process_kind="EngineCore",
                     ),
                 ):
+                    logger.critical("CoreEngineProcManager: Starting EngineCore process for local DP rank %d (global DP rank %d)", local_dp_rank, start_index + local_dp_rank)
                     proc.start()
         finally:
             # Kill other procs if not all are running.
@@ -1102,7 +1103,7 @@ def launch_core_engines(
             coordinator.get_stats_publish_address()
         )
 
-        logger.info("Started DP Coordinator process (PID: %d)", coordinator.proc.pid)
+        logger.info("launch_core_engines: Started DP Coordinator process (PID: %d)", coordinator.proc.pid)
     else:
         coordinator = None
 
@@ -1188,10 +1189,9 @@ def launch_core_engines(
             )
         else:
             local_engine_manager = None
-
         yield local_engine_manager, coordinator, addresses, tensor_queue
-
         # Now wait for engines to start.
+        logger.critical("Waiting for GPU engine processes to start (wait_for_engine_startup)")
         wait_for_engine_startup(
             handshake_socket,
             addresses,
@@ -1202,7 +1202,7 @@ def launch_core_engines(
             local_engine_manager,
             coordinator.proc if coordinator else None,
         )
-        logger.info("All engine core processes started successfully (wait_for_engine_startup returned).")
+        logger.critical("All engine core processes started successfully (wait_for_engine_startup returned).")
 
 
 def wait_for_engine_startup(
@@ -1217,6 +1217,7 @@ def wait_for_engine_startup(
 ):
     # Wait for engine core process(es) to send ready messages.
     local_count = parallel_config.data_parallel_size_local
+    logger.critical("wait_for_engine_startup: API Server has %s core engine(s) to handshake with", len(core_engines))
     remote_count = len(core_engines) - local_count
     # [local, remote] counts
     conn_pending, start_pending = [local_count, remote_count], [0, 0]
@@ -1292,6 +1293,7 @@ def wait_for_engine_startup(
                 )
 
         if status == "HELLO" and engine.state == CoreEngineState.NEW:
+            logger.critical("Received HELLO from %s core engine %s (headless: %s). Sending init message.", "local" if local else "remote", eng_index, headless)
             # Send init message with DP config info.
             init_message = msgspec.msgpack.encode(
                 EngineHandshakeMetadata(
@@ -1333,6 +1335,7 @@ def wait_for_engine_startup(
 
             start_pending[0 if local else 1] -= 1
             engine.state = CoreEngineState.READY
+            logger.critical("Received READY from %s core engine %s (headless: %s).", "local" if local else "remote", eng_index, headless)
         else:
             raise RuntimeError(
                 f"Unexpected {status} message for "

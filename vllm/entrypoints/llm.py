@@ -285,17 +285,12 @@ class LLM(BeamSearchOfflineMixin, PoolingOfflineMixin, OfflineInferenceMixin):
             compilation_config_instance = _make_config(
                 compilation_config, CompilationConfig
             )
-            logger.critical("Make Compilation config: %s", compilation_config_instance)
 
         structured_outputs_instance = _make_config(
             structured_outputs_config, StructuredOutputsConfig
         )
-        logger.critical("Make Structured outputs config: %s", structured_outputs_instance)
         profiler_config_instance = _make_config(profiler_config, ProfilerConfig)
-        logger.critical("Make Profiler config: %s", profiler_config_instance)
         attention_config_instance = _make_config(attention_config, AttentionConfig)
-        logger.critical("Make Attention config: %s", attention_config_instance)
-
         # warn about single-process data parallel usage.
         _dp_size = int(kwargs.get("data_parallel_size", 1))
         _distributed_executor_backend = kwargs.get("distributed_executor_backend")
@@ -353,10 +348,11 @@ class LLM(BeamSearchOfflineMixin, PoolingOfflineMixin, OfflineInferenceMixin):
             **kwargs,
         )
         log_non_default_args(engine_args)
-        logger.critical("Initializing LLMEngine in LLM initialization")
+        logger.critical("LLM: Initializing LLMEngine in LLM initialization")
         self.llm_engine = LLMEngine.from_engine_args(
             engine_args=engine_args, usage_context=UsageContext.LLM_CLASS
         )
+        logger.critical("LLM: Finished initializing LLMEngine in LLM initialization")
         self.model_config = self.llm_engine.model_config
         self.engine_class = type(self.llm_engine)
 
@@ -438,7 +434,7 @@ class LLM(BeamSearchOfflineMixin, PoolingOfflineMixin, OfflineInferenceMixin):
         tokenization_kwargs: dict[str, Any] | None = None,
         mm_processor_kwargs: dict[str, Any] | None = None,
     ) -> list[RequestOutput]:
-        logger.critical("call to function generate in LLM class")
+        logger.critical("LLM: Calling function generate in LLM class")
         """Generates the completions for the input prompts.
 
         This class automatically batches the given prompts, considering
@@ -482,7 +478,7 @@ class LLM(BeamSearchOfflineMixin, PoolingOfflineMixin, OfflineInferenceMixin):
 
         if sampling_params is None:
             sampling_params = self.get_default_sampling_params()
-        
+        logger.critical("LLM: Calling function OfflineInferenceMixin:_run_completion")
         return self._run_completion(
             prompts=prompts,
             params=sampling_params,

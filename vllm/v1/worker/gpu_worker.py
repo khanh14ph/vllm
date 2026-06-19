@@ -590,6 +590,7 @@ class Worker(WorkerBase):
 
     @instrument(span_name="Warmup (GPU)")
     def compile_or_warm_up_model(self) -> CompilationTimes:
+        logger.critical("Worker: Compiling and warming up the model. This may take a while...")
         warmup_sizes: list[int] = []
 
         if self.vllm_config.compilation_config.mode == CompilationMode.VLLM_COMPILE:
@@ -743,11 +744,12 @@ class Worker(WorkerBase):
         # (model weights, KV caches, CUDA graphs) during inference.
         freeze_gc_heap()
         maybe_attach_gc_debug_callback()
-
+        logger.critical("Worker: Finished compiling and warming up the model.")
         return CompilationTimes(
             language_model=self.compilation_config.compilation_time,
             encoder=self.compilation_config.encoder_compilation_time,
-        )
+        )   
+        
 
     def reset_mm_cache(self) -> None:
         self.model_runner.reset_mm_cache()
@@ -807,6 +809,7 @@ class Worker(WorkerBase):
         self, scheduler_output: "SchedulerOutput"
     ) -> ModelRunnerOutput | AsyncModelRunnerOutput | None:
         # ensure any previous non-blocking PP sends are complete
+        logger.critical("Worker: executing model on worker %d", self.rank)
         if self._pp_send_work:
             for handle in self._pp_send_work:
                 handle.wait()

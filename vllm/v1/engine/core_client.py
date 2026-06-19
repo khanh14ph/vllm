@@ -560,7 +560,6 @@ class MPClient(EngineCoreClient):
                 # Engines are managed by this client.
                 
                 addresses = get_engine_zmq_addresses(vllm_config)
-                print("vllm_config",vllm_config)
                 logger.critical("Generate ZeroMQ (ZMQ) network address")
                 
                 self.input_socket = self.resources.input_socket = make_zmq_socket(
@@ -661,6 +660,7 @@ class MPClient(EngineCoreClient):
         finally:
             if not success:
                 self._finalizer()
+        logger.critical("Finished initializing MPClient")
 
     def shutdown(self, timeout: float | None = None) -> None:
         """Shutdown engine manager under timeout and clean up resources."""
@@ -859,12 +859,14 @@ class SyncMPClient(MPClient):
 
         # The thread takes on responsibility for closing the socket.
         self.resources.output_socket = None
+        logger.critical("SyncMPClient: Finished initializing")
     def get_output(self) -> EngineCoreOutputs:
+        logger.critical("SyncMPClient: get_output() called, waiting for output from outputs_queue")
         # If an exception arises in process_outputs_socket task,
         # it is forwarded to the outputs_queue so we can raise it
         # from this (run_output_handler) task to shut down the server.
         outputs = self.outputs_queue.get()
-
+        logger.critical("SyncMPClient: received output from outputs_queue: %s", outputs.outputs[0].new_token_ids)
         if isinstance(outputs, Exception):
             raise self._format_exception(outputs) from None
         if outputs.wave_complete is not None:
@@ -876,7 +878,6 @@ class SyncMPClient(MPClient):
         self.free_pending_messages()
         # (Identity, RequestType, SerializedRequest)
         msg = (self.core_engine, request_type.value, *self.encoder.encode(request))
-
         if len(msg) <= 3:
             # No auxiliary buffers => no tensor backing buffers in request.
             self.input_socket.send_multipart(msg, copy=False)
@@ -884,6 +885,7 @@ class SyncMPClient(MPClient):
 
         tracker = self.input_socket.send_multipart(msg, copy=False, track=True)
         self.add_pending_message(tracker, request)
+        logger.critical("SyncMPClient: _send_input finished sending request of type %s", request_type)
 
     def call_utility(self, method: str, *args) -> Any:
         call_id = uuid.uuid1().int >> 64
@@ -899,6 +901,7 @@ class SyncMPClient(MPClient):
     def add_request(self, request: EngineCoreRequest) -> None:
         if self.is_dp:
             self.engines_running = True
+        logger.critical("SyncMPClient: add_request by calling to _send_input")
         self._send_input(EngineCoreRequestType.ADD, request)
 
     def abort_requests(self, request_ids: list[str]) -> None:
@@ -1082,7 +1085,7 @@ class AsyncMPClient(MPClient):
     ) -> Awaitable[Any]:
         if engine is None:
             engine = self.core_engine
-
+        
         message = (request_type.value, *self.encoder.encode(request))
         return self._send_input_message(message, engine, request)
 

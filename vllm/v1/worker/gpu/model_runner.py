@@ -284,6 +284,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             self.model = model_loader.load_model(
                 vllm_config=self.vllm_config, model_config=self.vllm_config.model_config
             )
+            logger.critical("GPUModelRunner: Model %s is loaded", self.model.__class__)
             if self.lora_config:
                 self.model = self.load_lora_model(
                     self.model, self.vllm_config, self.device
@@ -1107,6 +1108,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         skip_attn_for_dummy_run: bool = False,
         is_profile: bool = False,
     ) -> ModelRunnerOutput | IntermediateTensors | None:
+        logger.critical("GPUModelRunner: execute_model is excecuted")
         if not dummy_run:
             # Update the request states.
             self.update_pp_decode_requests()
@@ -1286,6 +1288,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     )
                 else:
                     # Eager (NONE): call the raw model directly.
+                    logger.critical("GPUModelRUnner: Model forward in Eager mode")
                     model_output = self.model(**model_inputs)
 
         if self.is_last_pp_rank:
