@@ -128,8 +128,11 @@ class EngineCoreClient(ABC):
         if parallel_config.data_parallel_size > 1:
             if parallel_config.data_parallel_external_lb:
                 # External load balancer - client per DP rank.
+                logger.critical("External load balancer - client per DP rank")
                 return DPAsyncMPClient(*client_args)
+                
             # Internal load balancer - client balances to all DP ranks.
+            logger.critical("Internal load balancer - client balances to all DP ranks.")
             return DPLBAsyncMPClient(*client_args)
         return AsyncMPClient(*client_args)
 
@@ -583,6 +586,7 @@ class MPClient(EngineCoreClient):
                     zmq.LAST_ENDPOINT
                 ).decode()
                 logger.critical("Bound output socket to address: %s", addresses.outputs[0])
+                logger.critical("launch_core_engines real")
                 with launch_core_engines(
                     vllm_config, executor_class, log_stats, addresses
                 ) as (engine_manager, coordinator, addresses, tensor_queue):

@@ -102,6 +102,7 @@ class ServeSubcommand(CLISubcommand):
         # - External LB: 1 (external LB handles distribution)
         # - Hybrid LB: Use local DP size (internal LB for local ranks only)
         # - Internal LB: Use full DP size
+        
         if args.api_server_count is None:
             if is_multi_port or is_external_lb or envs.VLLM_RUST_FRONTEND_PATH:
                 args.api_server_count = 1
@@ -145,6 +146,7 @@ class ServeSubcommand(CLISubcommand):
         else:
             # Single API server (this process).
             args.api_server_count = None
+            print("Single API server")
             uvloop.run(run_server(args))
 
     def validate(self, args: argparse.Namespace) -> None:
@@ -264,9 +266,10 @@ def run_multi_api_server(args: argparse.Namespace):
         raise ValueError(
             "VLLM_RUST_FRONTEND_PATH does not support api_server_count > 1"
         )
-
+    print("num_api_servers: ",num_api_servers)
     if num_api_servers > 1:
         setup_multiprocess_prometheus()
+
 
     shutdown_requested = False
 
@@ -296,6 +299,7 @@ def run_multi_api_server(args: argparse.Namespace):
         )
 
     executor_class = Executor.get_class(vllm_config)
+    print("executor_class: ",executor_class.__name__)
     log_stats = not engine_args.disable_log_stats
 
     parallel_config = vllm_config.parallel_config
@@ -319,7 +323,7 @@ def run_multi_api_server(args: argparse.Namespace):
         num_api_servers,
         defer_api_server_ports=not (rust_frontend_path or is_ray_dp),
     )
-
+    logger.critical("launch_core_engines fake")
     with launch_core_engines(
         vllm_config, executor_class, log_stats, addresses, num_api_servers
     ) as (local_engine_manager, coordinator, addresses, tensor_queue):
@@ -360,7 +364,7 @@ def run_multi_api_server(args: argparse.Namespace):
                 )
                 addresses.inputs = actual_inputs
                 addresses.outputs = actual_outputs
-
+        print("checkpoint99")
     # Wait for API servers.
     try:
         wait_for_completion_or_failure(

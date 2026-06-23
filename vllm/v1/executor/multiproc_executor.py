@@ -373,7 +373,7 @@ class MultiprocExecutor(Executor):
             send_method = method
         else:
             send_method = cloudpickle.dumps(method, protocol=pickle.HIGHEST_PROTOCOL)
-        logger.critical("Core Engine push data out to the GPU workers queue")
+        logger.critical("Core Engine push data out to the GPU workers queue %s",send_method)
         self.rpc_broadcast_mq.enqueue((send_method, args, kwargs, output_rank))
 
         response_mqs: Sequence[MessageQueue] = self.response_mqs
@@ -643,6 +643,7 @@ class WorkerProc:
         scheduler_config = vllm_config.scheduler_config
         self.use_async_scheduling = scheduler_config.async_scheduling
         if self.use_async_scheduling:
+            logger.critical("use_async_scheduling")
             self.async_output_queue: queue.Queue = queue.Queue()
             self.async_output_copy_thread = Thread(
                 target=self.async_output_busy_loop,

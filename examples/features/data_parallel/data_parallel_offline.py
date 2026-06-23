@@ -106,7 +106,8 @@ def main(
         "The president of the United States is",
         "The capital of France is",
         "The future of AI is",
-    ] * 100
+        "Vietnamese is better than Chinese because",
+    ] 
 
     # with DP, each rank should process different prompts.
     # usually all the DP ranks process a full dataset,

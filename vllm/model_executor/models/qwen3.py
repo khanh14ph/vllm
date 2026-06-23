@@ -226,7 +226,7 @@ class Qwen3DecoderLayer(nn.Module):
         residual: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         # Self Attention
-        print("QWEN3: RMSNorm")
+        # print("QWEN3: RMSNorm")
         if residual is None:
             residual = hidden_states
             
@@ -235,16 +235,16 @@ class Qwen3DecoderLayer(nn.Module):
         else:
             hidden_states, residual = self.input_layernorm(hidden_states, residual)
         
-        print("QWEN3: Qwen3Attention")
+        # print("QWEN3: Qwen3Attention")
         hidden_states = self.self_attn(
             positions=positions,
             hidden_states=hidden_states,
         )
         
-        print("QWEN3: RMSNorm")
+        # print("QWEN3: RMSNorm")
         # Fully Connected
         hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
-        print("QWEN3: Qwen3MLP")
+        # print("QWEN3: Qwen3MLP")
         hidden_states = self.mlp(hidden_states)
         
         return hidden_states, residual

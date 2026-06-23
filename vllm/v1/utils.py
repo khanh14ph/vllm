@@ -207,10 +207,13 @@ class APIServerProcessManager:
         spawn_context = multiprocessing.get_context("spawn")
         self.processes: list[BaseProcess] = []
         self._address_pipes: list[connection.Connection] = []
-
+        print("old_input_addresses",input_addresses)
+        print("new_output_addresses",output_addresses)
         for i, in_addr, out_addr in zip(
             range(num_servers), input_addresses, output_addresses
-        ):
+        ):  
+            
+            
             client_config: dict[str, Any] = {
                 "input_address": in_addr,
                 "output_address": out_addr,
@@ -223,9 +226,9 @@ class APIServerProcessManager:
                 client_config["tensor_queue"] = tensor_queue
 
             parent_recv, child_send = spawn_context.Pipe(duplex=False)
+            
             self._address_pipes.append(parent_recv)
             client_config["actual_address_pipe"] = child_send
-
             proc = spawn_context.Process(
                 target=target_server_fn or run_api_server_worker_proc,
                 name=f"ApiServer_{i}",
@@ -480,7 +483,7 @@ def run_api_server_worker_proc(
     listen_address, sock, args, client_config=None, **uvicorn_kwargs
 ) -> None:
     """Entrypoint for individual API server worker processes."""
-
+    logger.critical("run_api_server_worker_proc start")
     from vllm.entrypoints.openai.api_server import run_server_worker
 
     client_config = client_config or {}
